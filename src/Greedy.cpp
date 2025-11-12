@@ -1,5 +1,6 @@
 #include "../includes/Greedy.hpp"
 #include "../includes/Heuristic.hpp"
+#include "../includes/SolutionLogger.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -136,8 +137,8 @@ AStarResult Greedy::solve(Puzzle& puzzle, int size, int heuristic, bool silent,
     // Calculate initial heuristic
     int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
     
-    // For Greedy Search: f(n) = h(n), so we set g=0
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH);
+    // For Greedy Search: f(n) = h(n), so we set g=0 (with optional parent tracking for logging)
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH, nullptr, "");
     
     // Priority queue for open set
     std::priority_queue<std::shared_ptr<Node>, 
@@ -226,6 +227,17 @@ AStarResult Greedy::solve(Puzzle& puzzle, int size, int heuristic, bool silent,
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
                 std::cout << std::string(50, '=') << "\n";
+                
+                // Log solution to file
+                std::string heuristicName;
+                if (heuristic == 1) heuristicName = "Manhattan Distance";
+                else if (heuristic == 2) heuristicName = "Hamming Distance";
+                else if (heuristic == 3) heuristicName = "Linear Conflict";
+                
+                SolutionLogger::logSolution(
+                    "Greedy Search", heuristicName, initialState, goal, size,
+                    current, moves, totalSetOpened, maxStatesEnqueued, duration
+                );
             }
             
             return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
@@ -257,7 +269,9 @@ AStarResult Greedy::solve(Puzzle& puzzle, int size, int heuristic, bool silent,
                 size,
                 neighbor.zeroPos,
                 0,      // g=0 for greedy search (f = h only)
-                hCost   // h for sorting
+                hCost,  // h for sorting
+                current,  // Track parent for path reconstruction
+                neighbor.action  // Track action that led to this state
             );
             
             size_t neighborHash = neighborNode->hash();

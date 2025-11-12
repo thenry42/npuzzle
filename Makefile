@@ -29,6 +29,7 @@ clean:
 fclean:			clean
 				$(RM) $(BINDIR)
 				$(RM) $(NAME)
+				$(RM) results
 
 re:				fclean all
 

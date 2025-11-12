@@ -1,5 +1,6 @@
 #include "../includes/BeamSearch.hpp"
 #include "../includes/Heuristic.hpp"
+#include "../includes/SolutionLogger.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -137,8 +138,8 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
     // Calculate initial heuristic
     int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
     
-    // Create initial node
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH);
+    // Create initial node (with optional parent tracking for logging)
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH, nullptr, "");
     
     // Beam: current level of nodes to expand
     std::vector<std::shared_ptr<Node>> beam;
@@ -218,6 +219,17 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
                     std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                              << duration << "s\n";
                     std::cout << std::string(50, '=') << "\n";
+                    
+                    // Log solution to file
+                    std::string heuristicName;
+                    if (heuristic == 1) heuristicName = "Manhattan Distance";
+                    else if (heuristic == 2) heuristicName = "Hamming Distance";
+                    else if (heuristic == 3) heuristicName = "Linear Conflict";
+                    
+                    SolutionLogger::logSolution(
+                        "Beam Search", heuristicName, initialState, goal, size,
+                        current, moves, totalSetOpened, maxStatesEnqueued, duration, 1.0, beamWidth
+                    );
                 }
                 
                 return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 7, "Beam Search", false, "", beamWidth};
@@ -245,7 +257,9 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
                     size,
                     neighbor.zeroPos,
                     gCost,
-                    hCost
+                    hCost,
+                    current,          // Track parent for path reconstruction
+                    neighbor.action   // Track action that led to this state
                 );
                 
                 size_t neighborHash = neighborNode->hash();

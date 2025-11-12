@@ -1,4 +1,5 @@
 #include "../includes/UCS.hpp"
+#include "../includes/SolutionLogger.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -108,6 +109,11 @@ UCSResult UCS::solve(Puzzle& puzzle, int size, bool silent, size_t maxStates, do
     if (!puzzle.isSolvable()) {
         if (!silent) {
             std::cout << "\nPuzzle is unsolvable!\n";
+            
+            SolutionLogger::logFailure(
+                "UCS", "None (uninformed)", initialState, goal, size,
+                "Puzzle is unsolvable", 0, 0, 0
+            );
         }
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
@@ -128,8 +134,8 @@ UCSResult UCS::solve(Puzzle& puzzle, int size, bool silent, size_t maxStates, do
         }
     }
     
-    // Create initial node - UCS only uses g(n), h is 0
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, 0);
+    // Create initial node - UCS only uses g(n), h is 0 (with optional parent tracking for logging)
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, 0, nullptr, "");
     
     // Priority queue for open set - prioritizes by g(n) only
     std::priority_queue<std::shared_ptr<Node>, 
@@ -216,6 +222,12 @@ UCSResult UCS::solve(Puzzle& puzzle, int size, bool silent, size_t maxStates, do
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
                 std::cout << std::string(50, '=') << "\n";
+                
+                // Log solution to file
+                SolutionLogger::logSolution(
+                    "UCS", "None (uninformed)", initialState, goal, size,
+                    current, moves, totalSetOpened, maxStatesEnqueued, duration
+                );
             }
             
             return {true, moves, totalSetOpened, maxStatesEnqueued, duration, 0, "", 5, "UCS", false, ""};
@@ -236,13 +248,15 @@ UCSResult UCS::solve(Puzzle& puzzle, int size, bool silent, size_t maxStates, do
             // Calculate costs - UCS only uses g(n), h is always 0
             int gCost = current->getCost() + 1;
             
-            // Create neighbor node with h=0 (UCS doesn't use heuristic)
+            // Create neighbor node with h=0 (UCS doesn't use heuristic) and parent tracking
             auto neighborNode = std::make_shared<Node>(
                 std::move(neighbor.state),
                 size,
                 neighbor.zeroPos,
                 gCost,
-                0  // h = 0 for UCS
+                0,  // h = 0 for UCS
+                current,  // Track parent for path reconstruction
+                neighbor.action  // Track action that led to this state
             );
             
             size_t neighborHash = neighborNode->hash();

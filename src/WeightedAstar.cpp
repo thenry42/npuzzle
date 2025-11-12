@@ -1,5 +1,6 @@
 #include "../includes/WeightedAstar.hpp"
 #include "../includes/Heuristic.hpp"
+#include "../includes/SolutionLogger.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -138,8 +139,8 @@ AStarResult WeightedAstar::solve(Puzzle& puzzle, int size, int heuristic, bool s
     int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
     int weightedInitialH = static_cast<int>(weight * initialH);
     
-    // Create initial node
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, weightedInitialH);
+    // Create initial node (with optional parent tracking for logging)
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, weightedInitialH, nullptr, "");
     
     // Priority queue for open set
     std::priority_queue<std::shared_ptr<Node>, 
@@ -229,6 +230,17 @@ AStarResult WeightedAstar::solve(Puzzle& puzzle, int size, int heuristic, bool s
                          << duration << "s\n";
                 std::cout << "Weight used: " << weight << "\n";
                 std::cout << std::string(50, '=') << "\n";
+                
+                // Log solution to file
+                std::string heuristicName;
+                if (heuristic == 1) heuristicName = "Manhattan Distance";
+                else if (heuristic == 2) heuristicName = "Hamming Distance";
+                else if (heuristic == 3) heuristicName = "Linear Conflict";
+                
+                SolutionLogger::logSolution(
+                    "Weighted A*", heuristicName, initialState, goal, size,
+                    current, moves, totalSetOpened, maxStatesEnqueued, duration, weight
+                );
             }
             
             return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
@@ -260,7 +272,9 @@ AStarResult WeightedAstar::solve(Puzzle& puzzle, int size, int heuristic, bool s
                 size,
                 neighbor.zeroPos,
                 realGCost,        // Real g-cost for f-value calculation
-                weightedHCost     // Weighted h-cost
+                weightedHCost,    // Weighted h-cost
+                current,          // Track parent for path reconstruction
+                neighbor.action   // Track action that led to this state
             );
             
             size_t neighborHash = neighborNode->hash();

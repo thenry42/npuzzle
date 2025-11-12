@@ -1,5 +1,6 @@
 #include "../includes/Astar.hpp"
 #include "../includes/Heuristic.hpp"
+#include "../includes/SolutionLogger.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -109,6 +110,17 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
     if (!puzzle.isSolvable()) {
         if (!silent) {
             std::cout << "\nPuzzle is unsolvable!\n";
+            
+            // Log failure to file
+            std::string heuristicName;
+            if (heuristic == 1) heuristicName = "Manhattan Distance";
+            else if (heuristic == 2) heuristicName = "Hamming Distance";
+            else if (heuristic == 3) heuristicName = "Linear Conflict";
+            
+            SolutionLogger::logFailure(
+                "A*", heuristicName, initialState, goal, size,
+                "Puzzle is unsolvable", 0, 0, 0
+            );
         }
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
@@ -135,8 +147,8 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
     // Calculate initial heuristic
     int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
     
-    // Create initial node (no parent/action - saves memory!)
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH);
+    // Create initial node (with optional parent tracking for logging)
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH, nullptr, "");
     
     // Priority queue for open set - now stores shared_ptr to avoid copies
     std::priority_queue<std::shared_ptr<Node>, 
@@ -174,6 +186,17 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
                     std::cout << "Time limit: " << maxTimeSeconds << "s\n";
                     std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                              << elapsed << "s\n";
+                    
+                    // Log failure to file
+                    std::string heuristicName;
+                    if (heuristic == 1) heuristicName = "Manhattan Distance";
+                    else if (heuristic == 2) heuristicName = "Hamming Distance";
+                    else if (heuristic == 3) heuristicName = "Linear Conflict";
+                    
+                    SolutionLogger::logFailure(
+                        "A*", heuristicName, initialState, goal, size,
+                        "Timeout reached", totalSetOpened, maxStatesEnqueued, elapsed
+                    );
                 }
                 
                 return {false, 0, totalSetOpened, maxStatesEnqueued, elapsed, heuristic, "", 
@@ -196,6 +219,17 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
                          << (estimateMemoryUsage(totalSetOpened) / (1024 * 1024)) << " MB\n";
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
+                
+                // Log failure to file
+                std::string heuristicName;
+                if (heuristic == 1) heuristicName = "Manhattan Distance";
+                else if (heuristic == 2) heuristicName = "Hamming Distance";
+                else if (heuristic == 3) heuristicName = "Linear Conflict";
+                
+                SolutionLogger::logFailure(
+                    "A*", heuristicName, initialState, goal, size,
+                    "Memory limit reached", totalSetOpened, maxStatesEnqueued, duration
+                );
             }
             
             return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
@@ -223,6 +257,17 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
                 std::cout << std::string(50, '=') << "\n";
+                
+                // Log solution to file
+                std::string heuristicName;
+                if (heuristic == 1) heuristicName = "Manhattan Distance";
+                else if (heuristic == 2) heuristicName = "Hamming Distance";
+                else if (heuristic == 3) heuristicName = "Linear Conflict";
+                
+                SolutionLogger::logSolution(
+                    "A*", heuristicName, initialState, goal, size,
+                    current, moves, totalSetOpened, maxStatesEnqueued, duration
+                );
             }
             
             return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 1, "A*", false, "", 1.0};
@@ -244,14 +289,15 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
             int gCost = current->getCost() + 1;
             int hCost = Heuristic::getHeuristicValue(neighbor.state, goalLookup, size, heuristic);
             
-            // Use move semantics for neighbor.state to avoid copy
-            // No parent/action stored - massive memory savings!
+            // Create neighbor node with parent tracking for path reconstruction
             auto neighborNode = std::make_shared<Node>(
                 std::move(neighbor.state),
                 size,
                 neighbor.zeroPos,
                 gCost,
-                hCost
+                hCost,
+                current,  // Track parent for path reconstruction
+                neighbor.action  // Track action that led to this state
             );
             
             size_t neighborHash = neighborNode->hash();
@@ -288,6 +334,17 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                  << duration << "s\n";
         std::cout << std::string(50, '=') << "\n";
+        
+        // Log failure to file
+        std::string heuristicName;
+        if (heuristic == 1) heuristicName = "Manhattan Distance";
+        else if (heuristic == 2) heuristicName = "Hamming Distance";
+        else if (heuristic == 3) heuristicName = "Linear Conflict";
+        
+        SolutionLogger::logFailure(
+            "A*", heuristicName, initialState, goal, size,
+            "No solution found", totalSetOpened, maxStatesEnqueued, duration
+        );
     }
     
     return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 

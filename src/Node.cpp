@@ -1,20 +1,23 @@
 #include "../includes/Node.hpp"
 
-Node::Node() : _size(0), _zeroPos(0), _cost(0), _heuristic(0) {}
+Node::Node() : _size(0), _zeroPos(0), _cost(0), _heuristic(0), _parent(nullptr), _action("") {}
 
 Node::Node(const std::vector<uint8_t>& state,
            int size,
            uint8_t zeroPos,
            int cost,
-           int heuristic)
+           int heuristic,
+           std::shared_ptr<Node> parent,
+           const std::string& action)
     : _state(state), _size(size), _zeroPos(zeroPos), 
-      _cost(cost), _heuristic(heuristic) {}
+      _cost(cost), _heuristic(heuristic), _parent(parent), _action(action) {}
 
 Node::~Node() {}
 
 Node::Node(const Node& other)
     : _state(other._state), _size(other._size), _zeroPos(other._zeroPos),
-      _cost(other._cost), _heuristic(other._heuristic) {}
+      _cost(other._cost), _heuristic(other._heuristic),
+      _parent(other._parent), _action(other._action) {}
 
 Node& Node::operator=(const Node& other) {
     if (this != &other) {
@@ -23,6 +26,8 @@ Node& Node::operator=(const Node& other) {
         _zeroPos = other._zeroPos;
         _cost = other._cost;
         _heuristic = other._heuristic;
+        _parent = other._parent;
+        _action = other._action;
     }
     return *this;
 }
@@ -59,6 +64,14 @@ int Node::getHeuristic() const {
 
 int Node::getFValue() const {
     return _cost + _heuristic;
+}
+
+std::shared_ptr<Node> Node::getParent() const {
+    return _parent;
+}
+
+const std::string& Node::getAction() const {
+    return _action;
 }
 
 size_t Node::hash() const {

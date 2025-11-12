@@ -13,7 +13,9 @@ class Node {
              int size,
              uint8_t zeroPos,
              int cost,
-             int heuristic);
+             int heuristic,
+             std::shared_ptr<Node> parent = nullptr,
+             const std::string& action = "");
         ~Node();
         Node(const Node& other);
         Node& operator=(const Node& other);
@@ -29,6 +31,8 @@ class Node {
         int getCost() const;
         int getHeuristic() const;
         int getFValue() const;
+        std::shared_ptr<Node> getParent() const;
+        const std::string& getAction() const;
 
         // Hash function for closed set
         size_t hash() const;
@@ -40,9 +44,9 @@ class Node {
         int _cost;       // g(n) - cost from start
         int _heuristic;  // h(n) - heuristic estimate
         
-        // MEMORY OPTIMIZATION: Removed _parent and _action
-        // We only need the cost to reach goal, not the full path
-        // This reduces memory per node from ~130 bytes to ~60 bytes (2x improvement!)
+        // Optional path tracking (only used when logging moves to file)
+        std::shared_ptr<Node> _parent;  // Parent node for path reconstruction
+        std::string _action;            // Action that led to this state
 };
 
 #endif
