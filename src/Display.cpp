@@ -282,17 +282,27 @@ int Display::promptForHeuristic() {
     return choice;
 }
 
-int Display::promptForIterations() {
+int Display::promptForIterations(int size) {
+    // Size-based defaults for reasonable difficulty
+    int defaultIterations;
+    if (size == 3) {
+        defaultIterations = 1000;   // 3x3: Easy enough
+    } else if (size == 4) {
+        defaultIterations = 500;    // 4x4: Medium difficulty
+    } else {
+        defaultIterations = 1000;   // 5x5+: Still challenging
+    }
+    
     int iterations;
     while (true) {
         std::cout << BOLD << YELLOW << "Enter the number of iterations for the shuffle" << RESET 
-                  << " [default: 10000]: ";
+                  << " [default: " << defaultIterations << "]: ";
         
         std::string input;
         std::getline(std::cin, input);
         
         if (input.empty()) {
-            iterations = 10000;
+            iterations = defaultIterations;
             break;
         }
         

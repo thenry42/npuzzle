@@ -11,8 +11,8 @@
 #include <cfloat>
 
 // Safety macros - adjust these to control memory and time limits
-#define MAX_TIME_SECONDS 300.0      // Default maximum execution time in seconds (5 minutes)
-#define MAX_STATES_SIZE 25000000  // ~2.25 GB
+#define MAX_TIME_SECONDS 600.0      // Default maximum execution time in seconds (10 minutes)
+#define MAX_STATES_SIZE 30000000  // ~3 GB
 
 /*
 #define MAX_STATES_SIZE 100000000   // 100 million states (~9 GB)

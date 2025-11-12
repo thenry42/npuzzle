@@ -38,8 +38,8 @@ void Game::gameLoop() {
         // Prompt user to choose if they want a solvable or unsolvable puzzle
         solvable = _display.promptSolvableOrUnsolvable();
         
-        // Prompt for the number of iterations for the shuffle
-        iterations = _display.promptForIterations();
+        // Prompt for the number of iterations for the shuffle (pass size for smart defaults)
+        iterations = _display.promptForIterations(size);
     }
 
     // Prompt the user for preferred heuristic

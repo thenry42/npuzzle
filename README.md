@@ -135,11 +135,20 @@ The solver provides the following metrics:
 
 ## Recommendations
 
-| Puzzle Size | Best Heuristic | Expected Performance |
-|-------------|----------------|---------------------|
-| **3x3** | Linear Conflict | < 1 second, < 10MB |
-| **4x4** | Linear Conflict | < 10 seconds, < 500MB |
-| **5x5** | Linear Conflict | Variable (depends on difficulty and available memory) |
+| Puzzle Size | Best Heuristic | Shuffle Iterations | Expected Performance |
+|-------------|----------------|-------------------|---------------------|
+| **3x3** | Linear Conflict | 1000 (default) | < 1 second, < 10MB |
+| **4x4** | Linear Conflict | 500 (default) | 1-30 seconds, < 500MB |
+| **5x5** | Linear Conflict | 1000 (default) | Variable (may fail on hard puzzles) |
+
+### 5x5 Puzzle Limitations
+
+A* with Linear Conflict may struggle with 5x5 puzzles:
+- **Easy puzzles** (30-40 moves): Usually solves in seconds
+- **Medium puzzles** (40-60 moves): May solve in minutes
+- **Hard puzzles** (60+ moves): Often runs out of memory (2.25GB limit)
+
+For truly difficult 5x5 puzzles, more advanced techniques are needed (Pattern Databases, IDA*, etc.).
 
 ## License
 
