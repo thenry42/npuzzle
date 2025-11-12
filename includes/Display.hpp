@@ -15,11 +15,13 @@ class Display {
         bool promptForUseCustomPuzzle();
         std::vector<std::vector<int>> promptForCustomPuzzle(int size);
         bool promptSolvableOrUnsolvable();
-        int promptForHeuristic();
+        int promptForAlgorithm();
+        int promptForHeuristic(int algorithm);
         double promptForWeight();
+        int promptForBeamWidth();
         int promptForIterations();
         bool displayRecap(int size, bool solvable, int iterations, 
-                         const std::string& heuristicName, bool useCustom);
+                         const std::string& algorithmDescription, bool useCustom);
         void displayPuzzle(const std::vector<std::vector<int>>& grid);
         void displayPuzzleInline(const std::vector<std::vector<int>>& grid,
                                 const std::vector<std::vector<int>>& goal);

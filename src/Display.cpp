@@ -238,18 +238,96 @@ bool Display::promptSolvableOrUnsolvable() {
 }
 
 
-int Display::promptForHeuristic() {
+int Display::promptForAlgorithm() {
     std::vector<std::string> options = {
-        "Manhattan Distance (A*)",
-        "Hamming Distance (A*)",
-        "Linear Conflict (Best overall) (A*)",
-        "Uninformed Search / Dijkstra's Algo / UCS (A*)",
-        "Greedy Search",
-        "Weighted A*",
-        "Beam Search",
+        "A* (Optimal pathfinding with heuristic)",
+        "UCS / Dijkstra (Optimal, uninformed search)",
+        "Greedy Search (Fast, not optimal)",
+        "Weighted A* (Configurable speed/optimality trade-off)",
+        "Beam Search (Memory-efficient for large puzzles)",
     };
     
-    std::cout << "\n" << BOLD << YELLOW << "Available Heuristics:" << RESET << "\n";
+    std::cout << "\n" << BOLD << YELLOW << "Available Algorithms:" << RESET << "\n";
+    for (size_t i = 0; i < options.size(); i++) {
+        std::cout << "  " << CYAN << (i + 1) << RESET << ". " << options[i] << "\n";
+    }
+    
+    int choice;
+    while (true) {
+        std::cout << "\n" << BOLD << YELLOW << "Enter your choice" << RESET << " [default: 1]: ";
+        
+        std::string input;
+        std::getline(std::cin, input);
+        
+        if (input.empty()) {
+            choice = 1;
+        } else {
+            std::istringstream iss(input);
+            if (!(iss >> choice)) {
+                std::cout << BOLD << RED << "✗" << RESET << " Invalid input. Please enter a valid number.\n";
+                continue;
+            }
+        }
+        
+        if (choice < 1 || choice > static_cast<int>(options.size())) {
+            std::cout << BOLD << RED << "✗" << RESET << " Invalid choice. Please select a number between 1 and " 
+                     << options.size() << ".\n";
+            continue;
+        }
+        
+        std::cout << BOLD << GREEN << "✓" << RESET << " Using algorithm: " 
+                  << BOLD << CYAN << options[choice - 1] << RESET << "\n";
+        break;
+    }
+    
+    return choice;  // Returns 1=A*, 2=UCS, 3=Greedy, 4=Weighted A*, 5=Beam Search
+}
+
+int Display::promptForHeuristic(int algorithm) {
+    std::vector<std::string> options;
+    
+    // Different heuristics available depending on the algorithm
+    if (algorithm == 1) {
+        // A* - all heuristics available
+        options = {
+            "Manhattan Distance",
+            "Hamming Distance",
+            "Linear Conflict (Best overall)",
+        };
+        std::cout << "\n" << BOLD << YELLOW << "Select Heuristic for A*:" << RESET << "\n";
+    } else if (algorithm == 2) {
+        // UCS - no heuristic needed (uses only g(n))
+        std::cout << "\n" << BOLD << CYAN << "ℹ  UCS doesn't use a heuristic (h(n) = 0)" << RESET << "\n";
+        return 0;  // Return 0 to indicate no heuristic
+    } else if (algorithm == 3) {
+        // Greedy Search - uses heuristics
+        options = {
+            "Manhattan Distance",
+            "Hamming Distance",
+            "Linear Conflict (Best overall)",
+        };
+        std::cout << "\n" << BOLD << YELLOW << "Select Heuristic for Greedy Search:" << RESET << "\n";
+    } else if (algorithm == 4) {
+        // Weighted A* - uses heuristics
+        options = {
+            "Manhattan Distance",
+            "Hamming Distance",
+            "Linear Conflict (Best overall)",
+        };
+        std::cout << "\n" << BOLD << YELLOW << "Select Heuristic for Weighted A*:" << RESET << "\n";
+    } else if (algorithm == 5) {
+        // Beam Search - uses heuristics
+        options = {
+            "Manhattan Distance",
+            "Hamming Distance",
+            "Linear Conflict (Best overall)",
+        };
+        std::cout << "\n" << BOLD << YELLOW << "Select Heuristic for Beam Search:" << RESET << "\n";
+    } else {
+        // Default fallback
+        options = {"Manhattan Distance"};
+    }
+    
     for (size_t i = 0; i < options.size(); i++) {
         std::cout << "  " << CYAN << (i + 1) << RESET << ". " << options[i] << "\n";
     }
@@ -282,7 +360,7 @@ int Display::promptForHeuristic() {
         break;
     }
     
-    return choice;
+    return choice;  // Returns 1-3 depending on algorithm and choice
 }
 
 double Display::promptForWeight() {
@@ -321,9 +399,45 @@ double Display::promptForWeight() {
     return weight;
 }
 
+int Display::promptForBeamWidth() {
+    std::cout << "\n" << BOLD << YELLOW << "Beam Search Configuration:" << RESET << "\n";
+    std::cout << "  " << CYAN << "Beam width (k) controls the number of best states kept at each level" << RESET << "\n";
+    std::cout << "  • Smaller k (e.g., 10-50): Faster but may miss solution\n";
+    std::cout << "  • Larger k (e.g., 100-1000): More thorough but slower\n";
+    
+    int beamWidth;
+    while (true) {
+        std::cout << "\n" << BOLD << YELLOW << "Enter beam width (k)" << RESET << " [default: 100]: ";
+        
+        std::string input;
+        std::getline(std::cin, input);
+        
+        if (input.empty()) {
+            beamWidth = 100;
+        } else {
+            std::istringstream iss(input);
+            if (!(iss >> beamWidth)) {
+                std::cout << BOLD << RED << "✗" << RESET << " Invalid input. Please enter a valid number.\n";
+                continue;
+            }
+        }
+        
+        if (beamWidth < 1 || beamWidth > 10000) {
+            std::cout << BOLD << RED << "✗" << RESET << " Beam width should be between 1 and 10000\n";
+            continue;
+        }
+        
+        std::cout << BOLD << GREEN << "✓" << RESET << " Using beam width: " 
+                  << BOLD << CYAN << beamWidth << RESET << "\n";
+        break;
+    }
+    
+    return beamWidth;
+}
+
 int Display::promptForIterations() {
     // Size-based defaults for reasonable difficulty
-    int defaultIterations = 500;
+    int defaultIterations = 10000;
     int iterations = defaultIterations;
     
     while (true) {
@@ -356,7 +470,7 @@ int Display::promptForIterations() {
 }
 
 bool Display::displayRecap(int size, bool solvable, int iterations,
-                          const std::string& heuristicName, bool useCustom) {
+                          const std::string& algorithmDescription, bool useCustom) {
     std::ostringstream content;
     content << BOLD << CYAN << "Recap of your choices" << RESET << "\n";
     content << BOLD << GREEN << "✓" << RESET << " Grid size: " << BOLD << CYAN << size << "x" << size << RESET;
@@ -369,8 +483,7 @@ bool Display::displayRecap(int size, bool solvable, int iterations,
         content << "\n" << BOLD << GREEN << "✓" << RESET << " Iterations: " << BOLD << CYAN << iterations << RESET;
     }
     
-    content << "\n" << BOLD << GREEN << "✓" << RESET << " Algorithm: " << BOLD << CYAN << "A*" << RESET;
-    content << "\n" << BOLD << GREEN << "✓" << RESET << " Heuristic: " << BOLD << CYAN << heuristicName << RESET;
+    content << "\n" << BOLD << GREEN << "✓" << RESET << " Algorithm: " << BOLD << CYAN << algorithmDescription << RESET;
     
     printBox("", content.str(), CYAN);
     

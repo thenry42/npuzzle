@@ -1,5 +1,4 @@
-#include "../includes/BeamSearch.hpp"
-#include "../includes/Heuristic.hpp"
+#include "../includes/UCS.hpp"
 #include <iostream>
 #include <queue>
 #include <unordered_set>
@@ -10,27 +9,27 @@
 #include <climits>
 #include <cfloat>
 
-BeamSearch::BeamSearch() {}
+UCS::UCS() {}
 
-BeamSearch::~BeamSearch() {}
+UCS::~UCS() {}
 
-BeamSearch::BeamSearch(const BeamSearch& other) {
+UCS::UCS(const UCS& other) {
     (void)other;
 }
 
-BeamSearch& BeamSearch::operator=(const BeamSearch& other) {
+UCS& UCS::operator=(const UCS& other) {
     (void)other;
     return *this;
 }
 
 // Estimate memory usage in bytes
-size_t BeamSearch::estimateMemoryUsage(size_t numStates) {
+size_t UCS::estimateMemoryUsage(size_t numStates) {
     const size_t BYTES_PER_NODE = 60;   // Optimized: removed parent & action
-    const size_t HASH_OVERHEAD = 16;    // Per entry in unordered_set
-    return numStates * (BYTES_PER_NODE + HASH_OVERHEAD);
+    const size_t HASH_OVERHEAD = 16;    // Per entry in unordered_set/map
+    return numStates * (BYTES_PER_NODE + HASH_OVERHEAD * 2);  // Node + closedSet + gScores
 }
 
-void BeamSearch::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors) {
+void UCS::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors) {
     neighbors.clear();
     
     const std::vector<uint8_t>& state = node.getState();
@@ -74,13 +73,12 @@ void BeamSearch::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors
 }
 
 
-bool BeamSearch::isGoal(const std::vector<uint8_t>& state,
-                        const std::vector<uint8_t>& goal) {
+bool UCS::isGoal(const std::vector<uint8_t>& state,
+                 const std::vector<uint8_t>& goal) {
     return state == goal;
 }
 
-BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool silent, 
-                                   size_t maxStates, double maxTimeSeconds, int beamWidth) {
+UCSResult UCS::solve(Puzzle& puzzle, int size, bool silent, size_t maxStates, double maxTimeSeconds) {
     auto startTime = std::chrono::high_resolution_clock::now();
     
     // Get initial state and goal
@@ -93,7 +91,6 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
         std::cout << "\n[Memory Safety] Max states limited to " << maxStates 
                  << " (~" << estimatedMB << " MB)\n";
         std::cout << "[Time Safety] Max execution time: " << maxTimeSeconds << " seconds\n";
-        std::cout << "[Beam Search] Beam width (k): " << beamWidth << "\n";
     }
     
     // Check if already at goal
@@ -104,7 +101,7 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
         
-        return {true, 0, 0, 0, duration, heuristic, "", 7, "Beam Search", false, "", beamWidth};
+        return {true, 0, 0, 0, duration, 0, "", 5, "UCS", false, ""};
     }
     
     // Check if puzzle is solvable
@@ -115,11 +112,8 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
         
-        return {false, 0, 0, 0, duration, heuristic, "", 7, "Beam Search", false, "Puzzle is unsolvable", beamWidth};
+        return {false, 0, 0, 0, duration, 0, "", 5, "UCS", false, "Puzzle is unsolvable"};
     }
-    
-    // Pre-compute goal lookup table once
-    GoalLookup goalLookup(goal, size);
     
     // Initialize statistics
     int totalSetOpened = 0;
@@ -134,24 +128,30 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
         }
     }
     
-    // Calculate initial heuristic
-    int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
+    // Create initial node - UCS only uses g(n), h is 0
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, 0);
     
-    // Create initial node
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH);
-    
-    // Beam: current level of nodes to expand
-    std::vector<std::shared_ptr<Node>> beam;
-    beam.push_back(startNode);
+    // Priority queue for open set - prioritizes by g(n) only
+    std::priority_queue<std::shared_ptr<Node>, 
+                       std::vector<std::shared_ptr<Node>>, 
+                       UCSNodePtrComparator> openSet;
+    openSet.push(startNode);
     
     // Set to track visited states (closed set)
     std::unordered_set<size_t> closedSet;
+    
+    // Dictionary to track best cost to reach each state
+    std::unordered_map<size_t, int> gScores;
+    gScores[startNode->hash()] = 0;
     
     // Reusable neighbor vector to avoid repeated allocations
     std::vector<Neighbor> neighbors;
     neighbors.reserve(4);
     
-    while (!beam.empty()) {
+    while (!openSet.empty()) {
+        // Update max states enqueued
+        maxStatesEnqueued = std::max(maxStatesEnqueued, (int)openSet.size());
+        
         // Timeout check - prevent infinite execution
         if (maxTimeSeconds > 0) {
             auto currentTime = std::chrono::high_resolution_clock::now();
@@ -169,8 +169,8 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
                              << elapsed << "s\n";
                 }
                 
-                return {false, 0, totalSetOpened, maxStatesEnqueued, elapsed, heuristic, "", 
-                        7, "Beam Search", false, "Timeout reached", beamWidth};
+                return {false, 0, totalSetOpened, maxStatesEnqueued, elapsed, 0, "", 
+                        5, "UCS", false, "Timeout reached"};
             }
         }
         
@@ -191,131 +191,97 @@ BeamSearchResult BeamSearch::solve(Puzzle& puzzle, int size, int heuristic, bool
                          << duration << "s\n";
             }
             
-            return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
-                    7, "Beam Search", true, "Memory limit reached", beamWidth};
+            return {false, 0, totalSetOpened, maxStatesEnqueued, duration, 0, "", 
+                    5, "UCS", true, "Memory limit reached"};
         }
         
-        // Next level of candidates
-        std::vector<std::shared_ptr<Node>> candidates;
+        // Get node with lowest g value (cost)
+        auto current = openSet.top();
+        openSet.pop();
         
-        // Expand all nodes in current beam
-        for (const auto& current : beam) {
-            // Check if we reached the goal
-            if (isGoal(current->getState(), goal)) {
-                int moves = current->getCost();
-                
-                auto endTime = std::chrono::high_resolution_clock::now();
-                double duration = std::chrono::duration<double>(endTime - startTime).count();
-                
-                if (!silent) {
-                    std::cout << "\n" << std::string(50, '=') << "\n";
-                    std::cout << "Solution found!\n";
-                    std::cout << std::string(50, '=') << "\n";
-                    std::cout << "Total moves required: " << moves << "\n";
-                    std::cout << "Total states opened (time complexity): " << totalSetOpened << "\n";
-                    std::cout << "Maximum states in memory (space complexity): " << maxStatesEnqueued << "\n";
-                    std::cout << "Beam width (k): " << beamWidth << "\n";
-                    std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
-                             << duration << "s\n";
-                    std::cout << std::string(50, '=') << "\n";
-                }
-                
-                return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 7, "Beam Search", false, "", beamWidth};
-            }
+        // Check if we reached the goal
+        if (isGoal(current->getState(), goal)) {
+            int moves = current->getCost();
             
-            // Add current state to closed set
-            size_t currentHash = current->hash();
-            if (closedSet.find(currentHash) != closedSet.end()) {
-                continue;
-            }
-            closedSet.insert(currentHash);
-            totalSetOpened++;
-            
-            // Generate and process neighbors
-            getNeighbors(*current, neighbors);
-            
-            for (auto& neighbor : neighbors) {
-                // Calculate costs
-                int gCost = current->getCost() + 1;
-                int hCost = Heuristic::getHeuristicValue(neighbor.state, goalLookup, size, heuristic);
-                
-                // Create neighbor node
-                auto neighborNode = std::make_shared<Node>(
-                    std::move(neighbor.state),
-                    size,
-                    neighbor.zeroPos,
-                    gCost,
-                    hCost
-                );
-                
-                size_t neighborHash = neighborNode->hash();
-                
-                // Skip if already visited
-                if (closedSet.find(neighborHash) != closedSet.end()) {
-                    continue;
-                }
-                
-                // Add to candidates
-                candidates.push_back(neighborNode);
-            }
-        }
-        
-        // If no candidates, search has failed
-        if (candidates.empty()) {
             auto endTime = std::chrono::high_resolution_clock::now();
             double duration = std::chrono::duration<double>(endTime - startTime).count();
             
             if (!silent) {
                 std::cout << "\n" << std::string(50, '=') << "\n";
-                std::cout << "Beam Search exhausted! No solution found.\n";
+                std::cout << "Solution found!\n";
                 std::cout << std::string(50, '=') << "\n";
-                std::cout << "Total states opened: " << totalSetOpened << "\n";
-                std::cout << "Maximum states in memory: " << maxStatesEnqueued << "\n";
-                std::cout << "Beam width (k): " << beamWidth << "\n";
+                std::cout << "Total moves required: " << moves << "\n";
+                std::cout << "Total states opened (time complexity): " << totalSetOpened << "\n";
+                std::cout << "Maximum states in memory (space complexity): " << maxStatesEnqueued << "\n";
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
                 std::cout << std::string(50, '=') << "\n";
             }
             
-            return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
-                    7, "Beam Search", false, "Beam search exhausted (no candidates)", beamWidth};
+            return {true, moves, totalSetOpened, maxStatesEnqueued, duration, 0, "", 5, "UCS", false, ""};
         }
         
-        // Sort candidates by heuristic value (best first)
-        std::sort(candidates.begin(), candidates.end(), 
-                  [](const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) {
-                      return a->getHeuristic() < b->getHeuristic();
-                  });
-        
-        // Keep only the best k candidates for the next beam
-        int actualBeamWidth = std::min(beamWidth, static_cast<int>(candidates.size()));
-        beam.clear();
-        beam.reserve(actualBeamWidth);
-        for (int i = 0; i < actualBeamWidth; i++) {
-            beam.push_back(candidates[i]);
+        // Add current state to closed set
+        size_t currentHash = current->hash();
+        if (closedSet.find(currentHash) != closedSet.end()) {
+            continue;
         }
+        closedSet.insert(currentHash);
+        totalSetOpened++;
         
-        // Update max states in memory
-        maxStatesEnqueued = std::max(maxStatesEnqueued, static_cast<int>(beam.size()));
+        // Generate and process neighbors (reuses vector to avoid allocations)
+        getNeighbors(*current, neighbors);
+        
+        for (auto& neighbor : neighbors) {
+            // Calculate costs - UCS only uses g(n), h is always 0
+            int gCost = current->getCost() + 1;
+            
+            // Create neighbor node with h=0 (UCS doesn't use heuristic)
+            auto neighborNode = std::make_shared<Node>(
+                std::move(neighbor.state),
+                size,
+                neighbor.zeroPos,
+                gCost,
+                0  // h = 0 for UCS
+            );
+            
+            size_t neighborHash = neighborNode->hash();
+            
+            // Skip if already visited
+            if (closedSet.find(neighborHash) != closedSet.end()) {
+                continue;
+            }
+            
+            // Check if this is a better path to this state
+            if (gScores.find(neighborHash) != gScores.end() && 
+                gScores[neighborHash] <= gCost) {
+                continue;
+            }
+            
+            // Record the path cost
+            gScores[neighborHash] = gCost;
+            
+            // Add to open set (stores shared_ptr, no copy)
+            openSet.push(neighborNode);
+        }
     }
     
-    // No solution found (should not reach here normally)
+    // No solution found
     auto endTime = std::chrono::high_resolution_clock::now();
     double duration = std::chrono::duration<double>(endTime - startTime).count();
     
     if (!silent) {
         std::cout << "\n" << std::string(50, '=') << "\n";
-        std::cout << "No solution found!\n";
+        std::cout << "No solution found! Puzzle may be unsolvable.\n";
         std::cout << std::string(50, '=') << "\n";
         std::cout << "Total states opened: " << totalSetOpened << "\n";
         std::cout << "Maximum states in memory: " << maxStatesEnqueued << "\n";
-        std::cout << "Beam width (k): " << beamWidth << "\n";
         std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                  << duration << "s\n";
         std::cout << std::string(50, '=') << "\n";
     }
     
-    return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
-            7, "Beam Search", false, "No solution found", beamWidth};
+    return {false, 0, totalSetOpened, maxStatesEnqueued, duration, 0, "", 
+            5, "UCS", false, "No solution found"};
 }
 

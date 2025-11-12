@@ -8,14 +8,17 @@ Game::Game() {}
 Game::~Game() {}
 
 Game::Game(const Game& other) : _display(other._display), _astar(other._astar), 
-                                 _weightedAstar(other._weightedAstar), _greedy(other._greedy) {}
+                                 _ucs(other._ucs), _weightedAstar(other._weightedAstar), 
+                                 _greedy(other._greedy), _beamSearch(other._beamSearch) {}
 
 Game& Game::operator=(const Game& other) {
     if (this != &other) {
         _display = other._display;
         _astar = other._astar;
+        _ucs = other._ucs;
         _weightedAstar = other._weightedAstar;
         _greedy = other._greedy;
+        _beamSearch = other._beamSearch;
     }
     return *this;
 }
@@ -45,30 +48,54 @@ void Game::gameLoop() {
         iterations = _display.promptForIterations();
     }
 
-    // Prompt the user for preferred heuristic
-    int heuristic = _display.promptForHeuristic();
-
-    // Prompt for weight if weighted A* is selected
-    double weight = 1.0;  // Default weight for standard A*
-    if (heuristic == 6) {
+    // Step 1: Prompt for algorithm choice
+    int algorithm = _display.promptForAlgorithm();  // 1=A*, 2=UCS, 3=Greedy, 4=Weighted A*, 5=Beam Search
+    
+    // Step 2: Prompt for heuristic based on algorithm (UCS returns 0)
+    int heuristic = _display.promptForHeuristic(algorithm);
+    
+    // Step 3: Prompt for algorithm-specific parameters
+    double weight = 1.0;  // For Weighted A*
+    int beamWidth = 100;  // For Beam Search
+    
+    if (algorithm == 4) {
+        // Weighted A* - ask for weight
         weight = _display.promptForWeight();
+    } else if (algorithm == 5) {
+        // Beam Search - ask for beam width
+        beamWidth = _display.promptForBeamWidth();
     }
 
-    // Map heuristic choice to name for display
+    // Map choices to names for display
+    std::map<int, std::string> algorithmNames;
+    algorithmNames[1] = "A*";
+    algorithmNames[2] = "UCS";
+    algorithmNames[3] = "Greedy Search";
+    algorithmNames[4] = "Weighted A*";
+    algorithmNames[5] = "Beam Search";
+    
     std::map<int, std::string> heuristicNames;
+    heuristicNames[0] = "None (uninformed)";
     heuristicNames[1] = "Manhattan Distance";
     heuristicNames[2] = "Hamming Distance";
     heuristicNames[3] = "Linear Conflict";
-    heuristicNames[4] = "Uninformed Search";
-    heuristicNames[5] = "Greedy Search";
-    heuristicNames[6] = "Weighted A*";
-    heuristicNames[7] = "Beam Search";
 
+    std::string algorithmName = algorithmNames.count(algorithm) ? 
+                                algorithmNames[algorithm] : "Unknown";
     std::string heuristicName = heuristicNames.count(heuristic) ? 
                                 heuristicNames[heuristic] : "Unknown";
+    
+    // Combine for display
+    std::string displayName;
+    if (algorithm == 2) {
+        // UCS doesn't use heuristic
+        displayName = algorithmName;
+    } else {
+        displayName = algorithmName + " with " + heuristicName;
+    }
 
     // Display recap of the user's choices
-    if (!_display.displayRecap(size, solvable, iterations, heuristicName, useCustom)) {
+    if (!_display.displayRecap(size, solvable, iterations, displayName, useCustom)) {
         return;
     }
 
@@ -88,17 +115,23 @@ void Game::gameLoop() {
     // Display the puzzle inline (convert flat to 2D for display)
     _display.displayPuzzleInline(puzzle.getGrid2D(), puzzle.getGoal2D());
 
-    // Route to appropriate algorithm based on heuristic selection
+    // Route to appropriate algorithm based on user's choice
     // All algorithms use the same time and memory limits defined in Game class
-    if (heuristic == 5) {
-        // Greedy Search (Best-First Search)
-        _greedy.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME);
-    } else if (heuristic == 6) {
-        // Weighted A*
-        _weightedAstar.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME, weight);
-    } else {
-        // Standard A* (Manhattan, Hamming, Linear Conflict, Uninformed)
+    if (algorithm == 1) {
+        // A* - pass heuristic (1=Manhattan, 2=Hamming, 3=Linear Conflict)
         _astar.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME);
+    } else if (algorithm == 2) {
+        // UCS - no heuristic needed (uses only g(n))
+        _ucs.solve(puzzle, size, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME);
+    } else if (algorithm == 3) {
+        // Greedy Search - pass heuristic (1=Manhattan, 2=Hamming, 3=Linear Conflict)
+        _greedy.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME);
+    } else if (algorithm == 4) {
+        // Weighted A* - pass heuristic (1=Manhattan, 2=Hamming, 3=Linear Conflict) and weight
+        _weightedAstar.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME, weight);
+    } else if (algorithm == 5) {
+        // Beam Search - pass heuristic (1=Manhattan, 2=Hamming, 3=Linear Conflict) and beam width
+        _beamSearch.solve(puzzle, size, heuristic, false, DEFAULT_MAX_STATES, DEFAULT_MAX_TIME, beamWidth);
     }
 }
 

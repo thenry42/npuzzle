@@ -1,9 +1,8 @@
-#ifndef BEAMSEARCH_HPP
-#define BEAMSEARCH_HPP
+#ifndef UCS_HPP
+#define UCS_HPP
 
 #include "Puzzle.hpp"
 #include "Node.hpp"
-#include "Heuristic.hpp"
 #include <map>
 #include <string>
 #include <vector>
@@ -11,7 +10,7 @@
 #include <memory>
 #include <unordered_map>
 
-struct BeamSearchResult {
+struct UCSResult {
     bool solved;
     int moves;
     int timeComplexity;
@@ -19,31 +18,30 @@ struct BeamSearchResult {
     double executionTime;
     int heuristicId;
     std::string heuristicName;
-    int algorithmId;  // 7 = Beam Search
+    int algorithmId;  // 5 = UCS
     std::string algorithmName;
     bool memoryLimitReached;
     std::string failureReason;
-    int beamWidth;  // k parameter for beam search
 };
 
-// Comparator for priority queue of shared_ptr<Node>
-struct BeamNodePtrComparator {
+// Comparator for priority queue of shared_ptr<Node> - UCS only uses g(n)
+struct UCSNodePtrComparator {
     bool operator()(const std::shared_ptr<Node>& a, const std::shared_ptr<Node>& b) const {
-        // For min-heap, return true if a has HIGHER heuristic value (worse)
-        return a->getHeuristic() > b->getHeuristic();
+        // For min-heap, return true if a has HIGHER cost (worse g-value)
+        return a->getCost() > b->getCost();
     }
 };
 
-class BeamSearch {
+class UCS {
     public:
-        BeamSearch();
-        ~BeamSearch();
-        BeamSearch(const BeamSearch& other);
-        BeamSearch& operator=(const BeamSearch& other);
+        UCS();
+        ~UCS();
+        UCS(const UCS& other);
+        UCS& operator=(const UCS& other);
 
-        // Beam Search with memory limit and timeout
-        BeamSearchResult solve(Puzzle& puzzle, int size, int heuristic, bool silent = false, 
-                              size_t maxStates = 0, double maxTimeSeconds = 0, int beamWidth = 100);
+        // UCS (Uniform Cost Search / Dijkstra's) with memory limit and timeout
+        UCSResult solve(Puzzle& puzzle, int size, bool silent = false, 
+                       size_t maxStates = 0, double maxTimeSeconds = 0);
         
         // Memory management
         static size_t estimateMemoryUsage(size_t numStates);
