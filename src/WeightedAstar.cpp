@@ -1,4 +1,4 @@
-#include "../includes/Astar.hpp"
+#include "../includes/WeightedAstar.hpp"
 #include "../includes/Heuristic.hpp"
 #include <iostream>
 #include <queue>
@@ -10,27 +10,27 @@
 #include <climits>
 #include <cfloat>
 
-Astar::Astar() {}
+WeightedAstar::WeightedAstar() {}
 
-Astar::~Astar() {}
+WeightedAstar::~WeightedAstar() {}
 
-Astar::Astar(const Astar& other) {
+WeightedAstar::WeightedAstar(const WeightedAstar& other) {
     (void)other;
 }
 
-Astar& Astar::operator=(const Astar& other) {
+WeightedAstar& WeightedAstar::operator=(const WeightedAstar& other) {
     (void)other;
     return *this;
 }
 
 // Estimate memory usage in bytes
-size_t Astar::estimateMemoryUsage(size_t numStates) {
-    const size_t BYTES_PER_NODE = 60;   // Optimized: removed parent & action (was 130)
-    const size_t HASH_OVERHEAD = 16;    // Per entry in unordered_set/map
-    return numStates * (BYTES_PER_NODE + HASH_OVERHEAD * 2);  // Node + closedSet + gScores
+size_t WeightedAstar::estimateMemoryUsage(size_t numStates) {
+    const size_t BYTES_PER_NODE = 60;
+    const size_t HASH_OVERHEAD = 16;
+    return numStates * (BYTES_PER_NODE + HASH_OVERHEAD * 2);
 }
 
-void Astar::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors) {
+void WeightedAstar::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors) {
     neighbors.clear();
     
     const std::vector<uint8_t>& state = node.getState();
@@ -73,25 +73,26 @@ void Astar::getNeighbors(const Node& node, std::vector<Neighbor>& neighbors) {
     }
 }
 
-
-bool Astar::isGoal(const std::vector<uint8_t>& state,
-                   const std::vector<uint8_t>& goal) {
+bool WeightedAstar::isGoal(const std::vector<uint8_t>& state,
+                           const std::vector<uint8_t>& goal) {
     return state == goal;
 }
 
-AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, size_t maxStates, double maxTimeSeconds) {
+AStarResult WeightedAstar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, 
+                                 size_t maxStates, double maxTimeSeconds, double weight) {
     auto startTime = std::chrono::high_resolution_clock::now();
     
     // Get initial state and goal
     const std::vector<uint8_t>& initialState = puzzle.getGrid();
     const std::vector<uint8_t>& goal = puzzle.getGoal();
     
-    // Display memory and time limits (set by Game class)
+    // Display memory, time limits (set by Game class), and weight configuration
     if (!silent) {
         size_t estimatedMB = estimateMemoryUsage(maxStates) / (1024 * 1024);
         std::cout << "\n[Memory Safety] Max states limited to " << maxStates 
                  << " (~" << estimatedMB << " MB)\n";
         std::cout << "[Time Safety] Max execution time: " << maxTimeSeconds << " seconds\n";
+        std::cout << "[Weighted A*] Using weight: " << weight << "\n";
     }
     
     // Check if already at goal
@@ -102,7 +103,7 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
         
-        return {true, 0, 0, 0, duration, heuristic, "", 1, "A*", false, "", 1.0};
+        return {true, 0, 0, 0, duration, heuristic, "", 1, "Weighted A*", false, "", weight};
     }
     
     // Check if puzzle is solvable
@@ -113,10 +114,11 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         auto endTime = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double>(endTime - startTime).count();
         
-        return {false, 0, 0, 0, duration, heuristic, "", 1, "A*", false, "Puzzle is unsolvable", 1.0};
+        return {false, 0, 0, 0, duration, heuristic, "", 1, "Weighted A*", false, 
+                "Puzzle is unsolvable", weight};
     }
     
-    // Pre-compute goal lookup table once (avoids repeated allocations in heuristics)
+    // Pre-compute goal lookup table once
     GoalLookup goalLookup(goal, size);
     
     // Initialize statistics
@@ -132,13 +134,14 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         }
     }
     
-    // Calculate initial heuristic
+    // Calculate initial heuristic and apply weight
     int initialH = Heuristic::getHeuristicValue(initialState, goalLookup, size, heuristic);
+    int weightedInitialH = static_cast<int>(weight * initialH);
     
-    // Create initial node (no parent/action - saves memory!)
-    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, initialH);
+    // Create initial node
+    auto startNode = std::make_shared<Node>(initialState, size, initialZeroPos, 0, weightedInitialH);
     
-    // Priority queue for open set - now stores shared_ptr to avoid copies
+    // Priority queue for open set
     std::priority_queue<std::shared_ptr<Node>, 
                        std::vector<std::shared_ptr<Node>>, 
                        NodePtrComparator> openSet;
@@ -151,7 +154,7 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
     std::unordered_map<size_t, int> gScores;
     gScores[startNode->hash()] = 0;
     
-    // Reusable neighbor vector to avoid repeated allocations
+    // Reusable neighbor vector
     std::vector<Neighbor> neighbors;
     neighbors.reserve(4);
     
@@ -159,7 +162,7 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         // Update max states enqueued
         maxStatesEnqueued = std::max(maxStatesEnqueued, (int)openSet.size());
         
-        // Timeout check - prevent infinite execution
+        // Timeout check
         if (maxTimeSeconds > 0) {
             auto currentTime = std::chrono::high_resolution_clock::now();
             double elapsed = std::chrono::duration<double>(currentTime - startTime).count();
@@ -177,11 +180,11 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
                 }
                 
                 return {false, 0, totalSetOpened, maxStatesEnqueued, elapsed, heuristic, "", 
-                        1, "A*", false, "Timeout reached", 1.0};
+                        1, "Weighted A*", false, "Timeout reached", weight};
             }
         }
         
-        // Memory limit check - prevent crash
+        // Memory limit check
         if (totalSetOpened >= static_cast<int>(maxStates)) {
             auto endTime = std::chrono::high_resolution_clock::now();
             double duration = std::chrono::duration<double>(endTime - startTime).count();
@@ -199,16 +202,18 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
             }
             
             return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
-                    1, "A*", true, "Memory limit reached", 1.0};
+                    1, "Weighted A*", true, "Memory limit reached", weight};
         }
         
-        // Get node with lowest f value (no copy, just pointer)
+        // Get node with lowest f value
         auto current = openSet.top();
         openSet.pop();
         
         // Check if we reached the goal
         if (isGoal(current->getState(), goal)) {
-            int moves = current->getCost();
+            // Get real path cost from gScores (since we use weighted h for sorting)
+            size_t goalHash = current->hash();
+            int moves = gScores[goalHash];
             
             auto endTime = std::chrono::high_resolution_clock::now();
             double duration = std::chrono::duration<double>(endTime - startTime).count();
@@ -222,10 +227,12 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
                 std::cout << "Maximum states in memory (space complexity): " << maxStatesEnqueued << "\n";
                 std::cout << "Execution time: " << std::fixed << std::setprecision(4) 
                          << duration << "s\n";
+                std::cout << "Weight used: " << weight << "\n";
                 std::cout << std::string(50, '=') << "\n";
             }
             
-            return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 1, "A*", false, "", 1.0};
+            return {true, moves, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
+                    1, "Weighted A*", false, "", weight};
         }
         
         // Add current state to closed set
@@ -236,22 +243,24 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
         closedSet.insert(currentHash);
         totalSetOpened++;
         
-        // Generate and process neighbors (reuses vector to avoid allocations)
+        // Generate and process neighbors
         getNeighbors(*current, neighbors);
         
         for (auto& neighbor : neighbors) {
-            // Calculate costs
-            int gCost = current->getCost() + 1;
-            int hCost = Heuristic::getHeuristicValue(neighbor.state, goalLookup, size, heuristic);
+            // Calculate real g-cost (actual path cost)
+            int realGCost = gScores[currentHash] + 1;
             
-            // Use move semantics for neighbor.state to avoid copy
-            // No parent/action stored - massive memory savings!
+            // Calculate heuristic and apply weight
+            int hCost = Heuristic::getHeuristicValue(neighbor.state, goalLookup, size, heuristic);
+            int weightedHCost = static_cast<int>(weight * hCost);
+            
+            // Create neighbor node with weighted heuristic
             auto neighborNode = std::make_shared<Node>(
                 std::move(neighbor.state),
                 size,
                 neighbor.zeroPos,
-                gCost,
-                hCost
+                realGCost,        // Real g-cost for f-value calculation
+                weightedHCost     // Weighted h-cost
             );
             
             size_t neighborHash = neighborNode->hash();
@@ -263,14 +272,14 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
             
             // Check if this is a better path to this state
             if (gScores.find(neighborHash) != gScores.end() && 
-                gScores[neighborHash] <= gCost) {
+                gScores[neighborHash] <= realGCost) {
                 continue;
             }
             
-            // Record the path cost
-            gScores[neighborHash] = gCost;
+            // Record the real path cost
+            gScores[neighborHash] = realGCost;
             
-            // Add to open set (stores shared_ptr, no copy)
+            // Add to open set
             openSet.push(neighborNode);
         }
     }
@@ -291,6 +300,6 @@ AStarResult Astar::solve(Puzzle& puzzle, int size, int heuristic, bool silent, s
     }
     
     return {false, 0, totalSetOpened, maxStatesEnqueued, duration, heuristic, "", 
-            1, "A*", false, "No solution found", 1.0};
+            1, "Weighted A*", false, "No solution found", weight};
 }
 

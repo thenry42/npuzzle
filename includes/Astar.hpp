@@ -23,6 +23,7 @@ struct AStarResult {
     std::string algorithmName;
     bool memoryLimitReached;
     std::string failureReason;
+    double weight;  // Weight parameter for weighted A* (1.0 = standard A*)
 };
 
 // Comparator for priority queue of shared_ptr<Node>

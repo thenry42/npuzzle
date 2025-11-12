@@ -29,6 +29,7 @@ class Heuristic {
                                  const GoalLookup& goalLookup, int size);
         static int uninformedSearch(const std::vector<uint8_t>& state, 
                                    const GoalLookup& goalLookup, int size);
+        
         // Get heuristic value based on choice
         static int getHeuristicValue(const std::vector<uint8_t>& state,
                                     const GoalLookup& goalLookup,

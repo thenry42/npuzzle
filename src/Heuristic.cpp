@@ -35,6 +35,10 @@ Heuristic& Heuristic::operator=(const Heuristic& other) {
 int Heuristic::manhattanDistance(const std::vector<uint8_t>& state, 
                                  const GoalLookup& goalLookup, int size) {
     // Calculate Manhattan distance for each tile using pre-computed goal positions
+    // f(n) = g(n) + h(n)
+    // g(n) = cost from start to current node
+    // h(n) = sum(abs(currentRow - goalRow) + abs(currentCol - goalCol))
+    
     int distance = 0;
     for (int i = 0; i < size * size; i++) {
         uint8_t value = state[i];
@@ -54,6 +58,11 @@ int Heuristic::manhattanDistance(const std::vector<uint8_t>& state,
 int Heuristic::hammingDistance(const std::vector<uint8_t>& state, 
                                const GoalLookup& goalLookup, int size) {
     // Count misplaced tiles using pre-computed goal positions
+    
+    // f(n) = g(n) + h(n)
+    // g(n) = cost from start to current node
+    // h(n) = sum(misplaced tiles)
+    
     int distance = 0;
     for (int i = 0; i < size * size; i++) {
         uint8_t value = state[i];
@@ -69,7 +78,10 @@ int Heuristic::linearConflict(const std::vector<uint8_t>& state,
                               const GoalLookup& goalLookup, int size) {
     // Linear Conflict = Manhattan Distance + (Number of conflicts * 2)
     
-    // Start with Manhattan distance
+    // f(n) = g(n) + h(n)
+    // g(n) = cost from start to current node
+    // h(n) = Manhattan distance + (Number of conflicts * 2)
+    
     int distance = manhattanDistance(state, goalLookup, size);
     int conflicts = 0;
     
@@ -134,12 +146,17 @@ int Heuristic::linearConflict(const std::vector<uint8_t>& state,
 
 int Heuristic::uninformedSearch(const std::vector<uint8_t>& state, 
                                 const GoalLookup& goalLookup, int size) {
-    // Uninformed search always returns 0 (no heuristic)
+    // Uninformed search = Dijkstra's algorithm = Uniform Cost Search = UCS
+    // No heuristic, always returns 0
+    // f(n) = g(n)
+    // g(n) = cost from start to current node
+    
     (void)state;
     (void)goalLookup;
     (void)size;
     return 0;
 }
+
 
 int Heuristic::getHeuristicValue(const std::vector<uint8_t>& state,
                                  const GoalLookup& goalLookup,
@@ -154,6 +171,8 @@ int Heuristic::getHeuristicValue(const std::vector<uint8_t>& state,
         case 4:
             return uninformedSearch(state, goalLookup, size);
         default:
+            // For Greedy (5), Weighted A* (6), and Beam Search (7),
+            // use Manhattan distance as the base heuristic
             return manhattanDistance(state, goalLookup, size);
     }
 }

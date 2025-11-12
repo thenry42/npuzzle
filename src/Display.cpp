@@ -240,10 +240,13 @@ bool Display::promptSolvableOrUnsolvable() {
 
 int Display::promptForHeuristic() {
     std::vector<std::string> options = {
-        "Manhattan Distance",
-        "Hamming Distance",
-        "Linear Conflict (Best overall)",
-        "Uninformed Search",
+        "Manhattan Distance (A*)",
+        "Hamming Distance (A*)",
+        "Linear Conflict (Best overall) (A*)",
+        "Uninformed Search / Dijkstra's Algo / UCS (A*)",
+        "Greedy Search",
+        "Weighted A*",
+        "Beam Search",
     };
     
     std::cout << "\n" << BOLD << YELLOW << "Available Heuristics:" << RESET << "\n";
@@ -282,11 +285,47 @@ int Display::promptForHeuristic() {
     return choice;
 }
 
-int Display::promptForIterations(int size) {
+double Display::promptForWeight() {
+    std::cout << "\n" << BOLD << YELLOW << "Weighted A* Configuration:" << RESET << "\n";
+    std::cout << "  " << CYAN << "Weight controls the balance between optimality and speed" << RESET << "\n";
+    std::cout << "  • weight = 1.0: Standard A* (optimal, slower)\n";
+    std::cout << "  • weight > 1.0: Faster but suboptimal (e.g., 1.5, 2.0, 5.0)\n";
+    
+    double weight;
+    while (true) {
+        std::cout << "\n" << BOLD << YELLOW << "Enter weight" << RESET << " [default: 1.5]: ";
+        
+        std::string input;
+        std::getline(std::cin, input);
+        
+        if (input.empty()) {
+            weight = 1.5;
+        } else {
+            std::istringstream iss(input);
+            if (!(iss >> weight)) {
+                std::cout << BOLD << RED << "✗" << RESET << " Invalid input. Please enter a valid number.\n";
+                continue;
+            }
+        }
+        
+        if (weight < 0.1 || weight > 10.0) {
+            std::cout << BOLD << RED << "✗" << RESET << " Weight should be between 0.1 and 10.0\n";
+            continue;
+        }
+        
+        std::cout << BOLD << GREEN << "✓" << RESET << " Using weight: " 
+                  << BOLD << CYAN << weight << RESET << "\n";
+        break;
+    }
+    
+    return weight;
+}
+
+int Display::promptForIterations() {
     // Size-based defaults for reasonable difficulty
     int defaultIterations = 500;
+    int iterations = defaultIterations;
     
-    int iterations;
     while (true) {
         std::cout << BOLD << YELLOW << "Enter the number of iterations for the shuffle" << RESET 
                   << " [default: " << defaultIterations << "]: ";

@@ -10,13 +10,15 @@ This project solves the N-Puzzle problem (sliding tile puzzles) using the A* sea
 
 - **Search Algorithm:**
   - A* (A-Star) - Optimal pathfinding with configurable memory limits
+  - Greedy Search - Best First Search
+  - Weighted A* - Trade optimality for speed with configurable weight parameter
+  - Beam Search - Best First Search with a width limit
 
 - **Multiple Heuristics:**
   - Manhattan Distance
   - Hamming Distance (Misplaced Tiles)
   - Linear Conflict
-  - Linear Conflict Enhanced
-  - Uninformed Search (baseline)
+  - Uninformed Search (Dijkstra's/UCS baseline)
 
 - **Interactive Interface:**
   - Custom puzzle input
@@ -46,16 +48,26 @@ Follow the interactive prompts to:
 
 ### Heuristic Performance Table
 
-| Heuristic | 3×3 | 4×4 | 5×5 |
-|-----------|:---:|:---:|:---:|
-| **Manhattan Distance** | <0.01s ✅ | ✅ | ❌ |
-| **Hamming Distance** | <0.01s ✅ | ❌ | ❌ |
-| **Linear Conflict** | <0.01s ✅ | ✅ | ❌ |
-| **Uninformed Search** | <0.1s ✅ | ❌ | ❌ |
+#### <u>Mandatory Heuristics</u>
+
+| Heuristic | 3×3 | 4×4 | 5×5 | 6×6 | 7×7 |
+|-----------|:---:|:---:|:---:|:---:|:---:|
+| **Manhattan Distance** | <0.01s ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Hamming Distance** | <0.01s ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Linear Conflict** | <0.01s ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Uninformed Search** | <0.1s ✅ | ❌ | ❌ | ❌ | ❌ |
+
+#### <u>Bonus Heuristics & Algorithms</u>
+
+| Heuristic & Algorithm | 3×3 | 4×4 | 5×5 | 6×6 | 7×7 |
+|-----------------------|:---:|:---:|:---:|:---:|:---:|
+| **Greedy Search** | <0.01s ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Weighted A\* (w >= 3)** | <0.1s ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Beam Search** | <0.1s ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Legend:
 - ✅ Works well
-- ❌ Fails due to memory limit or timeout (300s, 2.25GB max states)
+- ❌ Fails due to memory limit or timeout (60s, 1 million states or 90 MB)
 
 ### Key Takeaways
 
@@ -117,6 +129,22 @@ Legend:
 - Only useful for algorithm comparison
 - Impractical for actual solving
 
+### Greedy Search
+- ⚠️ **Fast but not optimal**
+- Uses f(n) = h(n) (ignores path cost g(n))
+- Explores fewer states than A*
+
+### Weighted A*
+- ✅ **Configurable speed/optimality trade-off**
+- Uses f(n) = g(n) + weight × h(n)
+- **weight = 1.0**: Standard A* (optimal, slower)
+- **weight > 1.0**: Faster but suboptimal (e.g., 1.5, 2.0)
+- Typical values: 1.0 to 3.0
+- Excellent for larger puzzles where strict optimality isn't required
+- Higher weights = faster solving but potentially longer solution paths
+- May find suboptimal solutions
+- Good for difficult puzzles where A* runs out of memory
+
 ## Performance Metrics
 
 The solver provides the following metrics:
@@ -156,7 +184,7 @@ This project is part of the 42 School curriculum (after Common Core).
 
 ## TO DO
 
-- [ ] Add UCS Algo (Uniform Cost Search, no heuristic, 5x5 impossible)
-- [ ] Add Greedy Search Algo (5x5 feasible but not optimal)
+- [X] Add UCS Algo (Uniform Cost Search, no heuristic, 5x5 impossible)
+- [X] Add Greedy Search Algo (5x5 feasible but not optimal)
 - [ ] Add Weighted A* Algo (5x5 feasible but not optimal)
 - [ ] Add Beam Search Algo (5x5 feasible but not optimal)
