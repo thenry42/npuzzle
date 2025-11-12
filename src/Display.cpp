@@ -284,14 +284,7 @@ int Display::promptForHeuristic() {
 
 int Display::promptForIterations(int size) {
     // Size-based defaults for reasonable difficulty
-    int defaultIterations;
-    if (size == 3) {
-        defaultIterations = 1000;   // 3x3: Easy enough
-    } else if (size == 4) {
-        defaultIterations = 500;    // 4x4: Medium difficulty
-    } else {
-        defaultIterations = 1000;   // 5x5+: Still challenging
-    }
+    int defaultIterations = 500;
     
     int iterations;
     while (true) {

@@ -137,9 +137,9 @@ The solver provides the following metrics:
 
 | Puzzle Size | Best Heuristic | Shuffle Iterations | Expected Performance |
 |-------------|----------------|-------------------|---------------------|
-| **3x3** | Linear Conflict | 1000 (default) | < 1 second, < 10MB |
+| **3x3** | Linear Conflict | 500 (default) | < 1 second, < 10MB |
 | **4x4** | Linear Conflict | 500 (default) | 1-30 seconds, < 500MB |
-| **5x5** | Linear Conflict | 1000 (default) | Variable (may fail on hard puzzles) |
+| **5x5** | Linear Conflict | 500 (default) | Variable (may fail on hard puzzles) |
 
 ### 5x5 Puzzle Limitations
 
@@ -153,3 +153,10 @@ For truly difficult 5x5 puzzles, more advanced techniques are needed (Pattern Da
 ## License
 
 This project is part of the 42 School curriculum (after Common Core).
+
+## TO DO
+
+- [ ] Add UCS Algo (Uniform Cost Search, no heuristic, 5x5 impossible)
+- [ ] Add Greedy Search Algo (5x5 feasible but not optimal)
+- [ ] Add Weighted A* Algo (5x5 feasible but not optimal)
+- [ ] Add Beam Search Algo (5x5 feasible but not optimal)
