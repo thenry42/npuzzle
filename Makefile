@@ -8,7 +8,7 @@ SRCS		=	$(wildcard $(SRCDIR)/*.cpp)
 OBJS		=	$(patsubst $(SRCDIR)/%.cpp,$(BINDIR)/%.o,$(SRCS))
 
 CXX			=	c++
-CXXFLAGS	=	-O3 -march=native -flto -DNDEBUG -Wall -Wextra -Werror -I$(INCDIR)
+CXXFLAGS	=	-O3 -march=native -flto=auto -DNDEBUG -Wall -Wextra -Werror -I$(INCDIR)
 RM			=	rm -rf
 
 all:			$(NAME)
